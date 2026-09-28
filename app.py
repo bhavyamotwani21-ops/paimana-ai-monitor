@@ -527,14 +527,20 @@ def login_page() -> None:
                     if st.session_state.get("paimana_show_password", False)
                     else "password"
                 ),
+                key="paimana_password",
             )
             st.checkbox("Show password", key="paimana_show_password")
 
             if st.button("Login", type="primary", use_container_width=True):
                 if auth.authenticate(officer_id, password):
+                    st.session_state.pop("paimana_password", None)
                     st.rerun()
                 else:
-                    st.error("The Officer ID or password is incorrect.")
+                    st.error(
+                        "Enter a valid email address and a password with at least "
+                        "8 characters, including uppercase, lowercase, a number, "
+                        "and a special character."
+                    )
 
             st.markdown(
                 '<p class="authorization-note">Authorized access for monitoring officers only.</p>',

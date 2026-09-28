@@ -1,11 +1,8 @@
-import hmac
-
 import streamlit as st
 
 
-# Prototype authentication accepts any valid-looking email with this shared
-# password. It must be replaced by a proper authentication service later.
-DEMO_PASSWORD = "paimana123"
+# Prototype authentication validates credential format only. It must be
+# replaced by a proper authentication service before production use.
 AUTHENTICATED_KEY = "paimana_authenticated"
 OFFICER_EMAIL_KEY = "paimana_officer_email"
 OFFICER_ROLE_KEY = "paimana_officer_role"
@@ -32,11 +29,22 @@ def _is_valid_email(email: str) -> bool:
     )
 
 
+def _is_valid_password(password: str) -> bool:
+    """Apply the transparent password-format rules used by the prototype."""
+    return bool(
+        len(password) >= 8
+        and any(character.isupper() for character in password)
+        and any(character.islower() for character in password)
+        and any(character.isdigit() for character in password)
+        and any(not character.isalnum() for character in password)
+    )
+
+
 def authenticate(officer_id: str, password: str) -> bool:
     """Check the prototype credentials and update the current session."""
     normalized_email = officer_id.strip().lower()
     officer_matches = _is_valid_email(normalized_email)
-    password_matches = hmac.compare_digest(password, DEMO_PASSWORD)
+    password_matches = _is_valid_password(password)
     authenticated = officer_matches and password_matches
     st.session_state[AUTHENTICATED_KEY] = authenticated
 
