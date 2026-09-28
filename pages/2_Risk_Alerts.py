@@ -359,9 +359,20 @@ PAGE_CSS = """
     .risk-schedule-node { background: #FFFFFF; border: 1px solid #D9DEE5; border-radius: 3px; flex: 1; padding: 0.7rem 0.8rem; }
     .risk-schedule-node-latest { border-left: 3px solid #D99024; }
     .risk-schedule-arrow { align-self: center; color: #8090A0; font-size: 1.1rem; }
-    .risk-attention-panel { background: #F7F8FA; border: 1px solid #D9DEE5; border-left: 4px solid #17365D; border-radius: 3px; color: #1F2933; padding: 0.8rem 1rem; }
+    .risk-attention-panel { background: #F7F8FA; border: 1px solid #D9DEE5; border-left: 4px solid #17365D; border-radius: 3px; color: #1F2933; margin-bottom: 1.5rem; padding: 0.8rem 1rem; }
     .risk-attention-panel ul { margin: 0; padding-left: 1.25rem; }
     .risk-attention-panel li { line-height: 1.55; margin: 0.25rem 0; }
+    .risk-section-title.risk-trend-title { margin: 0.625rem 0 0.75rem; }
+    .risk-project-summary { background: #FFFFFF; border: 1px solid #D9DEE5; border-left: 4px solid #17365D; border-radius: 4px; padding: 0.9rem 1rem; }
+    .risk-project-summary-name { color: #102A43; font-size: 1.08rem; font-weight: 700; line-height: 1.4; margin: 0 0 0.75rem; }
+    .risk-project-status-row { display: grid; gap: 0.75rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .risk-project-status-item { border-right: 1px solid #E4E8ED; min-width: 0; padding-right: 0.7rem; }
+    .risk-project-status-item:last-child { border-right: 0; }
+    .risk-project-status-value { color: #17365D; display: block; font-size: 1.05rem; font-weight: 750; margin-top: 0.25rem; }
+    .risk-project-key-risks { border-top: 1px solid #E7EAF0; margin-top: 0.8rem; padding-top: 0.7rem; }
+    .risk-project-key-risks ul { margin: 0.35rem 0 0; padding-left: 1.25rem; }
+    .risk-project-key-risks li { color: #1F2933; font-size: 0.86rem; line-height: 1.5; margin: 0.18rem 0; }
+    .risk-project-data-quality { color: #66727F; font-size: 0.8rem; margin: 0.65rem 0 0; }
     div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stSelectbox"]) { border-left: 4px solid #17365D !important; padding: 0.35rem 0.5rem; }
 
     @media (max-width: 760px) {
@@ -385,6 +396,8 @@ PAGE_CSS = """
         .risk-warning-summary-item + .risk-warning-summary-item { border-left: 0; border-top: 1px solid #E4E8ED; margin-top: 0.6rem; padding-top: 0.7rem; }
         .risk-schedule-flow { flex-direction: column; }
         .risk-schedule-arrow { transform: rotate(90deg); }
+        .risk-project-status-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .risk-project-status-item:nth-child(2) { border-right: 0; }
     }
 </style>
 """
@@ -746,6 +759,90 @@ selected_project = filtered_projects.iloc[selected_rows[0]]
 project_id = str(selected_project["project_id"])
 project_month = selected_project["report_month"]
 priority_class = str(selected_project["review_priority"]).lower()
+project_indicators = indicators.loc[
+    indicators["report_month"].eq(project_month)
+    & indicators["project_id"].astype("string").eq(project_id)
+].copy()
+indicator_order = {code: index for index, code in enumerate(INDICATOR_LABELS)}
+project_indicators["_indicator_order"] = project_indicators["indicator_code"].map(
+    indicator_order
+)
+project_indicators = project_indicators.sort_values("_indicator_order", kind="stable")
+current_warning_status = warning_status.loc[
+    warning_status["report_month"].eq(project_month)
+    & warning_status["project_id"].astype("string").eq(project_id)
+].iloc[0]
+active_warnings = warnings.loc[
+    warnings["report_month"].eq(project_month)
+    & warnings["project_id"].astype("string").eq(project_id)
+].copy()
+warning_status_class = str(current_warning_status["early_warning_status"]).lower().replace(" ", "-")
+
+substantive_indicators = project_indicators.loc[
+    project_indicators["indicator_category"].ne("Data Quality Review")
+]
+data_quality_indicators = project_indicators.loc[
+    project_indicators["indicator_category"].eq("Data Quality Review")
+]
+key_risk_explanations = list(active_warnings["explanation"].dropna().astype(str))
+key_risk_explanations.extend(
+    substantive_indicators["explanation"].dropna().astype(str).tolist()
+)
+key_risk_explanations = list(dict.fromkeys(key_risk_explanations))[:3]
+if key_risk_explanations:
+    key_risks_html = "<ul>" + "".join(
+        f"<li>{_safe(explanation)}</li>" for explanation in key_risk_explanations
+    ) + "</ul>"
+else:
+    key_risks_html = (
+        '<p class="risk-project-data-quality">No active substantive monitoring or '
+        "early-warning signal was detected for this reporting snapshot.</p>"
+    )
+data_quality_html = ""
+if not data_quality_indicators.empty:
+    quality_labels = " · ".join(
+        data_quality_indicators["indicator_title"].dropna().astype(str).tolist()
+    )
+    data_quality_html = (
+        f'<p class="risk-project-data-quality"><strong>Data Quality:</strong> '
+        f"{_safe(quality_labels)}</p>"
+    )
+
+st.markdown(
+    '<p class="risk-section-title">Project Risk Summary</p>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    f"""
+    <section class="risk-project-summary">
+        <p class="risk-project-summary-name">{_safe(selected_project['project_name'])}</p>
+        <div class="risk-project-status-row">
+            <div class="risk-project-status-item">
+                <span class="risk-detail-label">Review Priority</span>
+                <span class="risk-priority risk-priority-{priority_class}">{_safe(selected_project['review_priority'])}</span>
+            </div>
+            <div class="risk-project-status-item">
+                <span class="risk-detail-label">Early Warning Status</span>
+                <span class="risk-priority risk-status-{warning_status_class}">{_safe(current_warning_status['early_warning_status'])}</span>
+            </div>
+            <div class="risk-project-status-item">
+                <span class="risk-detail-label">Monitoring Indicators</span>
+                <span class="risk-project-status-value">{int(selected_project['substantive_indicator_count'])}</span>
+            </div>
+            <div class="risk-project-status-item">
+                <span class="risk-detail-label">Early Warnings</span>
+                <span class="risk-project-status-value">{int(current_warning_status['active_warning_count'])}</span>
+            </div>
+        </div>
+        <div class="risk-project-key-risks">
+            <span class="risk-detail-label">Key Risks</span>
+            {key_risks_html}
+            {data_quality_html}
+        </div>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     '<p class="risk-section-title">Monitoring Review Details</p>',
@@ -795,18 +892,6 @@ st.markdown(
     '<p class="risk-section-title">Triggered Monitoring Indicators</p>',
     unsafe_allow_html=True,
 )
-project_indicators = indicators.loc[
-    indicators["report_month"].eq(project_month)
-    & indicators["project_id"].astype("string").eq(project_id)
-].copy()
-indicator_order = {code: index for index, code in enumerate(INDICATOR_LABELS)}
-project_indicators["_indicator_order"] = project_indicators["indicator_code"].map(
-    indicator_order
-)
-project_indicators = project_indicators.sort_values(
-    "_indicator_order", kind="stable"
-)
-
 if project_indicators.empty:
     st.info(
         "No substantive monitoring indicators triggered under the current prototype "
@@ -854,15 +939,6 @@ st.markdown(
     '<p class="risk-section-title">Early Warning Analysis</p>',
     unsafe_allow_html=True,
 )
-current_warning_status = warning_status.loc[
-    warning_status["report_month"].eq(project_month)
-    & warning_status["project_id"].astype("string").eq(project_id)
-].iloc[0]
-active_warnings = warnings.loc[
-    warnings["report_month"].eq(project_month)
-    & warnings["project_id"].astype("string").eq(project_id)
-].copy()
-warning_status_class = str(current_warning_status["early_warning_status"]).lower().replace(" ", "-")
 active_signal_text = str(current_warning_status["active_warning_names"] or "None").replace(", ", " · ")
 st.markdown(
     f"""
@@ -904,6 +980,18 @@ else:
             unsafe_allow_html=True,
         )
 
+st.markdown('<p class="risk-section-title">Why This Project Needs Attention</p>', unsafe_allow_html=True)
+if active_warnings.empty:
+    st.info("No active evidence-based early-warning explanation is available for this reporting snapshot.")
+else:
+    attention_items = "".join(
+        f"<li>{_safe(explanation)}</li>" for explanation in active_warnings["explanation"]
+    )
+    st.markdown(
+        f'<section class="risk-attention-panel"><ul>{attention_items}</ul></section>',
+        unsafe_allow_html=True,
+    )
+
 project_history = history.loc[history["project_id"].astype("string").eq(project_id)].copy()
 project_history["_period"] = pd.PeriodIndex(project_history["report_month"], freq="M")
 project_history = project_history.sort_values("_period")
@@ -931,7 +1019,7 @@ if valid_three_month_windows == 0:
 trend_columns = st.columns(2)
 priority_values = project_priorities["review_priority"].map({"NORMAL": 0, "MEDIUM": 1, "HIGH": 2})
 with trend_columns[0]:
-    st.markdown('<p class="risk-section-title">Review Priority Trend</p>', unsafe_allow_html=True)
+    st.markdown('<p class="risk-section-title risk-trend-title">Review Priority Trend</p>', unsafe_allow_html=True)
     priority_figure = go.Figure(go.Scatter(
         x=project_priorities["report_month"], y=priority_values, mode="lines+markers",
         line={"color": "#17365D", "width": 2}, marker={"size": 8},
@@ -941,7 +1029,7 @@ with trend_columns[0]:
     priority_figure.update_yaxes(tickmode="array", tickvals=[0, 1, 2], ticktext=["NORMAL", "MEDIUM", "HIGH"], range=[-0.15, 2.15], gridcolor="#E7EAF0")
     st.plotly_chart(priority_figure, use_container_width=True, config={"displayModeBar": False})
 with trend_columns[1]:
-    st.markdown('<p class="risk-section-title">Warning Signal Trend</p>', unsafe_allow_html=True)
+    st.markdown('<p class="risk-section-title risk-trend-title">Warning Signal Trend</p>', unsafe_allow_html=True)
     warning_figure = go.Figure(go.Scatter(
         x=project_warning_status["report_month"], y=project_warning_status["active_warning_count"],
         mode="lines+markers", line={"color": "#D99024", "width": 2}, marker={"size": 8},
@@ -1007,15 +1095,3 @@ else:
         ),
     })
     st.dataframe(schedule_table, hide_index=True, use_container_width=True)
-
-st.markdown('<p class="risk-section-title">Why This Project Needs Attention</p>', unsafe_allow_html=True)
-if active_warnings.empty:
-    st.info("No active evidence-based early-warning explanation is available for this reporting snapshot.")
-else:
-    attention_items = "".join(
-        f"<li>{_safe(explanation)}</li>" for explanation in active_warnings["explanation"]
-    )
-    st.markdown(
-        f'<section class="risk-attention-panel"><ul>{attention_items}</ul></section>',
-        unsafe_allow_html=True,
-    )

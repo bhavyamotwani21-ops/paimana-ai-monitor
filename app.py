@@ -196,11 +196,12 @@ HOME_CSS = """
 
     .page-heading {
         line-height: 1.15;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.45rem;
     }
 
     .page-introduction {
-        line-height: 1.3;
+        line-height: 1.35;
+        margin-bottom: 0.35rem;
     }
 
     .page-heading-rule {
@@ -217,7 +218,8 @@ HOME_CSS = """
     .home-overview-copy {
         color: #66727F;
         font-size: 0.94rem;
-        margin: -0.2rem 0 0.25rem;
+        line-height: 1.4;
+        margin: 0.15rem 0 1rem;
     }
 
     .home-section-title {
@@ -251,7 +253,7 @@ HOME_CSS = """
         font-size: 0.9rem;
         font-weight: 700;
         letter-spacing: 0.025em;
-        margin: 0 0 0.35rem;
+        margin: 0 0 0.55rem;
         text-transform: uppercase;
     }
 
@@ -261,7 +263,7 @@ HOME_CSS = """
         border-top: 3px solid #17365D;
         border-radius: 5px;
         box-sizing: border-box;
-        height: 118px;
+        height: 150px;
         padding: 0.8rem 1rem;
     }
 
@@ -286,7 +288,7 @@ HOME_CSS = """
         color: #66727F;
         font-size: 0.78rem;
         line-height: 1.35;
-        margin: 0.38rem 0 0;
+        margin: 0.3rem 0 0;
     }
 
     .home-ratio-panel {
@@ -680,8 +682,8 @@ def home_page() -> None:
             )
 
     st.markdown('<p class="home-section-title">Ministry Overview</p>', unsafe_allow_html=True)
-    projects_by_ministry = ministry_project_distribution(snapshot)
-    cost_by_ministry = ministry_cost_distribution(snapshot)
+    projects_by_ministry = ministry_project_distribution(month_data)
+    cost_by_ministry = ministry_cost_distribution(month_data)
     ministry_columns = st.columns(2)
     pie_colors = ["#17365D", "#D99024", "#416A8C", "#73899F", "#A65F3C", "#496B5D", "#8B7A4A", "#6D5B7B", "#9AA7B3", "#C2C8CE"]
     with ministry_columns[0]:
