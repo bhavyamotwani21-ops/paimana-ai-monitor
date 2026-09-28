@@ -8,6 +8,12 @@ import streamlit as st
 import src.auth as auth
 import src.ui as ui
 from src.risk_engine import HISTORICAL_DATA_PATH, load_historical_projects
+from src.portfolio_overview import (
+    aggregate_states,
+    latest_unique_snapshot,
+    ministry_cost_distribution,
+    ministry_project_distribution,
+)
 
 
 # Streamlit reruns app.py without always re-importing changed helper modules.
@@ -571,7 +577,7 @@ def home_page() -> None:
                 format_func=_month_label,
             )
 
-        month_data = history.loc[history["report_month"].eq(selected_month)].copy()
+        month_data = latest_unique_snapshot(history, selected_month)
         month_ministries = sorted(
             month_data["ministry"].dropna().unique().tolist()
         )
@@ -625,6 +631,83 @@ def home_page() -> None:
         _render_home_kpi(
             "Cumulative Expenditure", _format_crore(expenditure_total)
         )
+
+    st.markdown(
+        '<p class="home-section-title">State-wise Project Monitoring</p>',
+        unsafe_allow_html=True,
+    )
+    map_filter_columns = st.columns(2)
+    with map_filter_columns[0]:
+        map_ministry = st.selectbox(
+            "Ministry", ["All Ministries", *month_ministries], key="home_map_ministry"
+        )
+    sector_options = sorted(month_data["sector"].dropna().unique().tolist())
+    with map_filter_columns[1]:
+        map_sector = st.selectbox(
+            "Sector", ["All Sectors", *sector_options], key="home_map_sector"
+        )
+    map_snapshot = month_data
+    if map_ministry != "All Ministries":
+        map_snapshot = map_snapshot.loc[map_snapshot["ministry"].eq(map_ministry)]
+    if map_sector != "All Sectors":
+        map_snapshot = map_snapshot.loc[map_snapshot["sector"].eq(map_sector)]
+    state_summary, excluded_state_projects = aggregate_states(map_snapshot)
+    if state_summary.empty:
+        st.info("No reliably single-state projects match the selected map filters.")
+    else:
+        map_figure = go.Figure(go.Scattergeo(
+            lat=state_summary["lat"], lon=state_summary["lon"],
+            text=state_summary["state"],
+            customdata=state_summary[["project_count", "original_cost_cr", "revised_cost_cr", "cumulative_expenditure_cr"]],
+            marker={"size": state_summary["project_count"], "sizemode": "area", "sizeref": max(state_summary["project_count"].max() / 42, 1),
+                    "sizemin": 7, "color": state_summary["project_count"], "colorscale": [[0, "#B8C7D9"], [1, "#17365D"]],
+                    "colorbar": {"title": "Projects", "thickness": 12}, "line": {"color": "#FFFFFF", "width": 0.8}},
+            hovertemplate=("<b>%{text}</b><br>Projects: %{customdata[0]:,}<br>Original Cost: ₹%{customdata[1]:,.2f} crore"
+                           "<br>Revised Cost (where reported): ₹%{customdata[2]:,.2f} crore"
+                           "<br>Expenditure: ₹%{customdata[3]:,.2f} crore<extra></extra>"),
+        ))
+        map_figure.update_geos(scope="asia", projection_type="mercator", center={"lat": 22.5, "lon": 80.0},
+                               lataxis_range=[6, 38], lonaxis_range=[67, 98], showland=True,
+                               landcolor="#F2F4F7", showcountries=True, countrycolor="#AEB8C4",
+                               showcoastlines=True, coastlinecolor="#AEB8C4")
+        map_figure.update_layout(height=560, margin={"l": 0, "r": 0, "t": 10, "b": 0},
+                                 paper_bgcolor="#FFFFFF", font={"family": "Segoe UI, Arial, sans-serif"})
+        with st.container(border=True):
+            st.plotly_chart(map_figure, use_container_width=True, config=PLOT_CONFIG)
+            st.caption(
+                f"Map includes {int(state_summary['project_count'].sum()):,} reliably single-state project(s). "
+                f"{excluded_state_projects:,} PAN-India, offshore, multi-state, missing, or unmappable project(s) are excluded to avoid incorrect allocation."
+            )
+
+    st.markdown('<p class="home-section-title">Ministry Overview</p>', unsafe_allow_html=True)
+    projects_by_ministry = ministry_project_distribution(snapshot)
+    cost_by_ministry = ministry_cost_distribution(snapshot)
+    ministry_columns = st.columns(2)
+    pie_colors = ["#17365D", "#D99024", "#416A8C", "#73899F", "#A65F3C", "#496B5D", "#8B7A4A", "#6D5B7B", "#9AA7B3", "#C2C8CE"]
+    with ministry_columns[0]:
+        st.markdown('<p class="home-chart-title">Projects by Ministry</p>', unsafe_allow_html=True)
+        project_pie = go.Figure(go.Pie(
+            labels=projects_by_ministry["ministry"], values=projects_by_ministry["project_count"], hole=0.42,
+            marker={"colors": pie_colors}, sort=False,
+            hovertemplate="<b>%{label}</b><br>Projects: %{value:,}<br>Share: %{percent}<extra></extra>",
+        ))
+        project_pie.update_layout(height=430, margin={"l": 10, "r": 10, "t": 10, "b": 10}, legend={"orientation": "h", "y": -0.08},
+                                  paper_bgcolor="#FFFFFF", font={"family": "Segoe UI, Arial, sans-serif", "color": "#1F2933"})
+        with st.container(border=True):
+            st.plotly_chart(project_pie, use_container_width=True, config=PLOT_CONFIG)
+            st.caption("Distribution of unique projects across ministries; smaller categories are grouped dynamically as Others.")
+    with ministry_columns[1]:
+        st.markdown('<p class="home-chart-title">Cost by Ministry</p>', unsafe_allow_html=True)
+        cost_pie = go.Figure(go.Pie(
+            labels=cost_by_ministry["ministry"], values=cost_by_ministry["total_cost_cr"],
+            customdata=cost_by_ministry[["project_count"]], hole=0.42, marker={"colors": pie_colors}, sort=False,
+            hovertemplate="<b>%{label}</b><br>Total Cost: ₹%{value:,.2f} crore<br>Share: %{percent}<br>Projects: %{customdata[0]:,}<extra></extra>",
+        ))
+        cost_pie.update_layout(height=430, margin={"l": 10, "r": 10, "t": 10, "b": 10}, legend={"orientation": "h", "y": -0.08},
+                               paper_bgcolor="#FFFFFF", font={"family": "Segoe UI, Arial, sans-serif", "color": "#1F2933"})
+        with st.container(border=True):
+            st.plotly_chart(cost_pie, use_container_width=True, config=PLOT_CONFIG)
+            st.caption("Latest reported project cost: revised cost where available, otherwise original cost. Smaller categories are grouped as Others.")
 
     st.markdown(
         '<p class="home-section-title">Financial Overview</p>',

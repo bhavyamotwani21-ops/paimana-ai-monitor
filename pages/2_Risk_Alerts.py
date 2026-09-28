@@ -2,19 +2,31 @@ from __future__ import annotations
 
 import hashlib
 import html
+import importlib
 import re
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
-from src.risk_engine import (
-    HISTORICAL_DATA_PATH,
-    REVIEW_PRIORITY_DISCLAIMER,
-    generate_monitoring_indicators,
-    generate_review_priorities,
-    load_historical_projects,
-)
+import src.risk_engine as risk_engine
 from src.ui import apply_shared_styles, render_page_header
+
+
+# Streamlit can retain an older imported module while rerunning a changed page.
+# Reload the engine before binding its public API so newly added warning symbols
+# are available without requiring the application process to be restarted.
+risk_engine = importlib.reload(risk_engine)
+
+HISTORICAL_DATA_PATH = risk_engine.HISTORICAL_DATA_PATH
+REVIEW_PRIORITY_DISCLAIMER = risk_engine.REVIEW_PRIORITY_DISCLAIMER
+EARLY_WARNING_DISCLAIMER = risk_engine.EARLY_WARNING_DISCLAIMER
+add_monitoring_comparisons = risk_engine.add_monitoring_comparisons
+generate_early_warning_status = risk_engine.generate_early_warning_status
+generate_early_warnings = risk_engine.generate_early_warnings
+generate_monitoring_indicators = risk_engine.generate_monitoring_indicators
+generate_review_priorities = risk_engine.generate_review_priorities
+load_historical_projects = risk_engine.load_historical_projects
 
 
 PAGE_CSS = """
@@ -92,6 +104,8 @@ PAGE_CSS = """
         display: grid;
         gap: 0.75rem 1.25rem;
         grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding-bottom: 0.8rem;
+
     }
 
     .risk-detail-item {
@@ -149,8 +163,8 @@ PAGE_CSS = """
         color: #1F2933;
         font-size: 0.92rem;
         line-height: 1.55;
-        margin: 0.9rem 0 0;
-        padding-top: 0.8rem;
+        margin: 1.4rem 0 0;
+        padding-top: 1.1rem;
     }
 
     .risk-indicator-card {
@@ -310,6 +324,46 @@ PAGE_CSS = """
         color: #102A43 !important;
     }
 
+    /* Risk-page rhythm and restrained semantic status treatments. */
+    .risk-context-note { background: #F4F7FA; margin: 1rem 0 1.6rem; padding: 0.7rem 0.9rem; }
+    .risk-section-title { margin: 1.85rem 0 0.85rem; }
+    .risk-summary-card { border-top: 0; border-left: 4px solid #17365D; min-height: 104px; padding: 0.95rem 1rem; }
+    .risk-summary-high { background: #FFF9F9; border-left-color: #A64747; }
+    .risk-summary-medium { background: #FFFBF3; border-left-color: #C47B19; }
+    .risk-summary-normal { background: #F8FBF8; border-left-color: #4F7A5A; }
+    .risk-summary-high .risk-summary-value { color: #8F3535; }
+    .risk-summary-medium .risk-summary-value { color: #9A5B08; }
+    .risk-summary-normal .risk-summary-value { color: #3F6849; }
+    .risk-priority-high { background: #FFF4F4; border-color: #B75A5A; color: #8F3535; }
+    .risk-priority-normal { background: #F2F8F3; border-color: #72927A; color: #3F6849; }
+    .risk-indicator-card { margin-bottom: 0.7rem; padding: 0.8rem 0.95rem; }
+    .risk-indicator-code { background: transparent; border: 0; color: #7A8794; font-size: 0.68rem; padding: 0.15rem 0; }
+    .risk-indicator-explanation { margin-top: 0.5rem; }
+    .risk-evidence-grid { margin-top: 0.65rem; }
+    .risk-evidence-item { padding: 0.55rem 0.7rem; }
+
+    .risk-section-intro { color: #566574; font-size: 0.88rem; line-height: 1.5; margin: -0.45rem 0 0.45rem; }
+    .risk-record-count { color: #495765; font-size: 0.8rem; font-weight: 650; margin: 0.75rem 0 1.05rem; text-align: right; }
+    .risk-warning-summary { background: #FFFFFF; border: 1px solid #D9DEE5; border-left: 4px solid #D99024; border-radius: 4px; display: grid; grid-template-columns: 1fr 0.7fr 2.3fr; margin-bottom: 0.875rem; padding: 0.95rem 1rem; }
+    .risk-warning-summary-item { padding: 0.1rem 0.9rem; }
+    .risk-warning-summary-item + .risk-warning-summary-item { border-left: 1px solid #E4E8ED; }
+    .risk-warning-disclaimer { color: #66727F; font-size: 0.8rem; line-height: 1.45; margin: 0 0 1.375rem; }
+    .risk-indicator-card.risk-warning-card { margin-bottom: 1rem; }
+    .risk-warning-status { display: inline-block; margin: 0.25rem 0 0; }
+    .risk-status-no-current-warning { background: #F2F4F7; border-color: #A4AFBA; color: #495765; }
+    .risk-status-watch { background: #FFF9EF; border-color: #D9A45C; color: #80500D; }
+    .risk-status-elevated { background: #FFF5E6; border-color: #C47B19; color: #8D5207; }
+    .risk-status-high-attention { background: #FFF4F4; border-color: #B75A5A; color: #8F3535; }
+    .risk-warning-evidence { background: #F7F8FA; border-left: 2px solid #D9DEE5; color: #364554; font-size: 0.84rem; line-height: 1.5; margin-top: 0.6rem; padding: 0.5rem 0.7rem; }
+    .risk-schedule-flow { align-items: stretch; display: flex; gap: 0.5rem; margin: 0.4rem 0 0.9rem; }
+    .risk-schedule-node { background: #FFFFFF; border: 1px solid #D9DEE5; border-radius: 3px; flex: 1; padding: 0.7rem 0.8rem; }
+    .risk-schedule-node-latest { border-left: 3px solid #D99024; }
+    .risk-schedule-arrow { align-self: center; color: #8090A0; font-size: 1.1rem; }
+    .risk-attention-panel { background: #F7F8FA; border: 1px solid #D9DEE5; border-left: 4px solid #17365D; border-radius: 3px; color: #1F2933; padding: 0.8rem 1rem; }
+    .risk-attention-panel ul { margin: 0; padding-left: 1.25rem; }
+    .risk-attention-panel li { line-height: 1.55; margin: 0.25rem 0; }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stSelectbox"]) { border-left: 4px solid #17365D !important; padding: 0.35rem 0.5rem; }
+
     @media (max-width: 760px) {
         .risk-detail-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -326,6 +380,11 @@ PAGE_CSS = """
         .risk-evidence-item:nth-child(-n+2) {
             border-bottom: 1px solid #E4E8ED;
         }
+
+        .risk-warning-summary { grid-template-columns: 1fr; }
+        .risk-warning-summary-item + .risk-warning-summary-item { border-left: 0; border-top: 1px solid #E4E8ED; margin-top: 0.6rem; padding-top: 0.7rem; }
+        .risk-schedule-flow { flex-direction: column; }
+        .risk-schedule-arrow { transform: rotate(90deg); }
     }
 </style>
 """
@@ -355,12 +414,14 @@ PRIORITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "NORMAL": 2}
 @st.cache_data(show_spinner=False)
 def _load_monitoring_data(
     historical_file_modified_ns: int,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     del historical_file_modified_ns
     history = load_historical_projects()
     indicators = generate_monitoring_indicators(history)
     priorities = generate_review_priorities(history, indicators)
-    return history, indicators, priorities
+    warnings = generate_early_warnings(history, indicators)
+    warning_status = generate_early_warning_status(history, warnings)
+    return history, indicators, priorities, warnings, warning_status
 
 
 def _month_label(report_month: str) -> str:
@@ -406,10 +467,47 @@ def _format_evidence_value(indicator: pd.Series, field: str) -> str:
     return str(value)
 
 
+def _warning_evidence_text(warning: pd.Series) -> str:
+    code = warning["warning_code"]
+    if code in {"PROGRESS_SLOWDOWN", "REPEATED_STAGNATION"}:
+        return (
+            f"{warning['earliest_report_month']}: {_format_number(warning['earliest_physical_progress_pct'])}%; "
+            f"{warning['previous_report_month']}: {_format_number(warning['previous_physical_progress_pct'])}%; "
+            f"{warning['report_month']}: {_format_number(warning['current_physical_progress_pct'])}%. "
+            f"Interval gains: {_format_number(warning['previous_progress_gain_pct_points'])} pp, "
+            f"{_format_number(warning['current_progress_gain_pct_points'])} pp."
+        )
+    if code == "PROGRESS_STAGNATION_REVIEW":
+        return (
+            f"{warning['previous_report_month']}: {_format_number(warning['previous_physical_progress_pct'])}%; "
+            f"{warning['report_month']}: {_format_number(warning['current_physical_progress_pct'])}%."
+        )
+    if code == "EXPENDITURE_PROGRESS_DIVERGENCE":
+        return (
+            f"{warning['previous_report_month']} to {warning['report_month']}: expenditure "
+            f"₹{_format_number(warning['previous_expenditure_cr'])} crore → "
+            f"₹{_format_number(warning['current_expenditure_cr'])} crore; physical progress "
+            f"{_format_number(warning['previous_physical_progress_pct'])}% → "
+            f"{_format_number(warning['current_physical_progress_pct'])}%."
+        )
+    if code == "SCHEDULE_DETERIORATION":
+        return (
+            f"{warning['previous_report_month']} to {warning['report_month']}: Revised DoC "
+            f"{warning['previous_revised_doc']} → {warning['current_revised_doc']} "
+            f"(+{int(warning['extension_months'])} months)."
+        )
+    return ""
+
+
 def _render_summary_card(label: str, value: int) -> None:
+    status_class = {
+        "HIGH Priority": "risk-summary-high",
+        "MEDIUM Priority": "risk-summary-medium",
+        "NORMAL Priority": "risk-summary-normal",
+    }.get(label, "")
     st.markdown(
         f"""
-        <div class="risk-summary-card">
+        <div class="risk-summary-card {status_class}">
             <p class="risk-summary-label">{html.escape(label)}</p>
             <p class="risk-summary-value">{value:,}</p>
         </div>
@@ -436,7 +534,7 @@ st.markdown(
 )
 
 try:
-    history, indicators, priorities = _load_monitoring_data(
+    history, indicators, priorities, warnings, warning_status = _load_monitoring_data(
         HISTORICAL_DATA_PATH.stat().st_mtime_ns
     )
 except (FileNotFoundError, ValueError) as exc:
@@ -510,6 +608,10 @@ if selected_category != "All Categories":
     ]
 
 summary_counts = context_projects["review_priority"].value_counts()
+st.markdown(
+    '<p class="risk-section-title">Portfolio Review Summary</p>',
+    unsafe_allow_html=True,
+)
 summary_columns = st.columns(4)
 with summary_columns[0]:
     _render_summary_card("Projects Monitored", len(context_projects))
@@ -520,10 +622,22 @@ with summary_columns[2]:
 with summary_columns[3]:
     _render_summary_card("NORMAL Priority", int(summary_counts.get("NORMAL", 0)))
 
-st.caption(
-    "Summary cards reflect Report Month, Ministry, Indicator Category, and Project "
-    "Search. Review Priority narrows the table only."
+st.markdown(
+    """
+    <div style="
+        padding-top: 14px;
+        padding-bottom: 32px;
+        color: #8A96A3;
+        font-size: 0.82rem;
+        line-height: 1.45;
+    ">
+        Summary cards reflect Report Month, Ministry, Indicator Category, and Project Search.
+        Review Priority narrows the table only.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
+
 
 filtered_projects = context_projects.copy()
 if selected_priority != "All Priorities":
@@ -545,9 +659,11 @@ st.markdown(
     '<p class="risk-section-title">Projects for Monitoring Review</p>',
     unsafe_allow_html=True,
 )
-st.caption(
-    "Select a row to inspect its monitoring indicators. NORMAL means no substantive "
-    "indicator triggered under the current prototype rules; it does not mean safe."
+st.markdown(
+    '<p class="risk-section-intro">Select a row to inspect its monitoring indicators. '
+    'NORMAL means no substantive indicator triggered under the current prototype rules; '
+    'it does not mean safe.</p>',
+    unsafe_allow_html=True,
 )
 
 if filtered_projects.empty:
@@ -576,8 +692,21 @@ styled_table = table_data.style.set_properties(
         "border-color": "#D9DEE5",
     }
 )
+styled_table = styled_table.map(
+    lambda value: {
+        "HIGH": "color: #8F3535; font-weight: 700; background-color: #FFF4F4",
+        "MEDIUM": "color: #8D5207; font-weight: 700; background-color: #FFF9EF",
+        "NORMAL": "color: #3F6849; font-weight: 700; background-color: #F2F8F3",
+    }.get(str(value), ""),
+    subset=["Review Priority"],
+).set_table_styles(
+    [{"selector": "th", "props": [("background-color", "#F2F4F7"), ("color", "#102A43"), ("font-weight", "700")]}]
+)
 
-st.caption(f"Showing {len(table_data):,} project-month record(s).")
+st.markdown(
+    f'<p class="risk-record-count">Showing {len(table_data):,} project-month record(s)</p>',
+    unsafe_allow_html=True,
+)
 filter_signature = "|".join(
     [
         selected_month,
@@ -700,6 +829,8 @@ else:
             """
             for label, value in evidence
         )
+        is_data_quality = indicator["indicator_category"] == "Data Quality Review"
+        evidence_section = "" if is_data_quality else f'<div class="risk-evidence-grid">{evidence_html}</div>'
         st.markdown(
             f"""
             <section class="risk-indicator-card">
@@ -713,8 +844,178 @@ else:
                     <p class="risk-indicator-code">{_safe(indicator['indicator_code'])}</p>
                 </div>
                 <p class="risk-indicator-explanation">{_safe(indicator['explanation'])}</p>
-                <div class="risk-evidence-grid">{evidence_html}</div>
+                {evidence_section}
             </section>
             """,
             unsafe_allow_html=True,
         )
+
+st.markdown(
+    '<p class="risk-section-title">Early Warning Analysis</p>',
+    unsafe_allow_html=True,
+)
+current_warning_status = warning_status.loc[
+    warning_status["report_month"].eq(project_month)
+    & warning_status["project_id"].astype("string").eq(project_id)
+].iloc[0]
+active_warnings = warnings.loc[
+    warnings["report_month"].eq(project_month)
+    & warnings["project_id"].astype("string").eq(project_id)
+].copy()
+warning_status_class = str(current_warning_status["early_warning_status"]).lower().replace(" ", "-")
+active_signal_text = str(current_warning_status["active_warning_names"] or "None").replace(", ", " · ")
+st.markdown(
+    f"""
+    <section class="risk-warning-summary">
+            <div class="risk-warning-summary-item">
+                <span class="risk-detail-label">Early Warning Status</span>
+                <span class="risk-priority risk-warning-status risk-status-{warning_status_class}">{_safe(current_warning_status['early_warning_status'])}</span>
+            </div>
+            <div class="risk-warning-summary-item">
+                <span class="risk-detail-label">Active Warnings</span>
+                <span class="risk-summary-value">{int(current_warning_status['active_warning_count'])}</span>
+            </div>
+            <div class="risk-warning-summary-item">
+                <span class="risk-detail-label">Active Signals</span>
+                <span class="risk-detail-value">{_safe(active_signal_text)}</span>
+            </div>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
+st.markdown(
+    f'<p class="risk-warning-disclaimer">{html.escape(EARLY_WARNING_DISCLAIMER)}</p>',
+    unsafe_allow_html=True,
+)
+
+if active_warnings.empty:
+    st.info("No current early-warning condition was detected from the available consecutive reporting history.")
+else:
+    for _, warning in active_warnings.iterrows():
+        evidence_text = _warning_evidence_text(warning)
+        st.markdown(
+            f"""
+            <section class="risk-indicator-card risk-warning-card">
+                <p class="risk-indicator-title">{_safe(warning['warning_name'])}</p>
+                <p class="risk-indicator-explanation">{_safe(warning['explanation'])}</p>
+                <div class="risk-warning-evidence">{_safe(evidence_text)}</div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+
+project_history = history.loc[history["project_id"].astype("string").eq(project_id)].copy()
+project_history["_period"] = pd.PeriodIndex(project_history["report_month"], freq="M")
+project_history = project_history.sort_values("_period")
+project_priorities = priorities.loc[priorities["project_id"].astype("string").eq(project_id)].copy()
+project_priorities["_period"] = pd.PeriodIndex(project_priorities["report_month"], freq="M")
+project_priorities = project_priorities.sort_values("_period")
+project_warning_status = warning_status.loc[
+    warning_status["project_id"].astype("string").eq(project_id)
+].copy()
+project_warning_status["_period"] = pd.PeriodIndex(project_warning_status["report_month"], freq="M")
+project_warning_status = project_warning_status.sort_values("_period")
+
+valid_three_month_windows = 0
+if len(project_history) >= 3:
+    periods = project_history["_period"].map(lambda value: value.ordinal)
+    progress_present = project_history["physical_progress_pct"].notna()
+    valid_three_month_windows = int(
+        ((periods.diff().eq(1)) & (periods.diff().shift(1).eq(1))
+         & progress_present & progress_present.shift(1).fillna(False)
+         & progress_present.shift(2).fillna(False)).sum()
+    )
+if valid_three_month_windows == 0:
+    st.warning("Insufficient consecutive history is available for the three-month Progress Slowdown and Repeated Stagnation rules. This is not treated as evidence of safety.")
+
+trend_columns = st.columns(2)
+priority_values = project_priorities["review_priority"].map({"NORMAL": 0, "MEDIUM": 1, "HIGH": 2})
+with trend_columns[0]:
+    st.markdown('<p class="risk-section-title">Review Priority Trend</p>', unsafe_allow_html=True)
+    priority_figure = go.Figure(go.Scatter(
+        x=project_priorities["report_month"], y=priority_values, mode="lines+markers",
+        line={"color": "#17365D", "width": 2}, marker={"size": 8},
+        text=project_priorities["review_priority"], hovertemplate="%{x}<br>%{text}<extra></extra>",
+    ))
+    priority_figure.update_layout(height=310, margin={"l": 45, "r": 15, "t": 10, "b": 35}, paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF", showlegend=False)
+    priority_figure.update_yaxes(tickmode="array", tickvals=[0, 1, 2], ticktext=["NORMAL", "MEDIUM", "HIGH"], range=[-0.15, 2.15], gridcolor="#E7EAF0")
+    st.plotly_chart(priority_figure, use_container_width=True, config={"displayModeBar": False})
+with trend_columns[1]:
+    st.markdown('<p class="risk-section-title">Warning Signal Trend</p>', unsafe_allow_html=True)
+    warning_figure = go.Figure(go.Scatter(
+        x=project_warning_status["report_month"], y=project_warning_status["active_warning_count"],
+        mode="lines+markers", line={"color": "#D99024", "width": 2}, marker={"size": 8},
+        text=project_warning_status["active_warning_names"],
+        hovertemplate="%{x}<br>Distinct warnings: %{y}<br>%{text}<extra></extra>",
+    ))
+    warning_figure.update_layout(height=310, margin={"l": 45, "r": 15, "t": 10, "b": 35}, paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF", showlegend=False)
+    warning_figure.update_yaxes(title="Distinct warnings", rangemode="tozero", dtick=1, gridcolor="#E7EAF0")
+    st.plotly_chart(warning_figure, use_container_width=True, config={"displayModeBar": False})
+
+st.markdown('<p class="risk-section-title">Expenditure vs Physical Progress</p>', unsafe_allow_html=True)
+history_figure = go.Figure()
+history_figure.add_trace(go.Scatter(
+    x=project_history["report_month"], y=project_history["cumulative_expenditure_cr"],
+    name="Cumulative expenditure (₹ crore)", mode="lines+markers", line={"color": "#17365D"},
+    hovertemplate="%{x}<br>₹%{y:,.2f} crore<extra></extra>",
+))
+history_figure.add_trace(go.Scatter(
+    x=project_history["report_month"], y=project_history["physical_progress_pct"],
+    name="Physical progress (%)", mode="lines+markers", line={"color": "#D99024"}, yaxis="y2",
+    hovertemplate="%{x}<br>%{y:,.2f}%<extra></extra>",
+))
+history_figure.update_layout(
+    height=380, margin={"l": 65, "r": 65, "t": 15, "b": 40}, paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+    yaxis={"title": "Cumulative expenditure (₹ crore)", "gridcolor": "#E7EAF0"},
+    yaxis2={"title": "Physical progress (%)", "overlaying": "y", "side": "right", "range": [0, 100]},
+    legend={"orientation": "h", "y": -0.18},
+)
+st.plotly_chart(history_figure, use_container_width=True, config={"displayModeBar": False})
+st.caption("The two series use separate axes and units; ₹ crore and percentage values are not directly equivalent. Missing observations are not replaced with zero.")
+
+st.markdown('<p class="risk-section-title">Schedule Movement</p>', unsafe_allow_html=True)
+schedule_rows = project_history.loc[project_history["revised_doc"].notna()].copy()
+if schedule_rows.empty:
+    st.info("No valid reported Revised DoC observations are available for this project.")
+else:
+    schedule_comparisons = add_monitoring_comparisons(project_history.drop(columns="_period"))
+    schedule_comparisons = schedule_comparisons.loc[schedule_comparisons["revised_doc"].notna()]
+    original_docs = project_history["original_target_doc"].dropna().astype(str).unique().tolist()
+    revised_docs = schedule_comparisons["revised_doc"].astype(str).tolist()
+    schedule_nodes: list[tuple[str, str, bool]] = []
+    if original_docs:
+        schedule_nodes.append(("Original Target", original_docs[0], False))
+    if revised_docs:
+        schedule_nodes.append(("First Reported Revised", revised_docs[0], False))
+        if len(revised_docs) > 1:
+            schedule_nodes.append(("Latest Reported Revised", revised_docs[-1], True))
+    schedule_flow = '<span class="risk-schedule-arrow">→</span>'.join(
+        f"""
+        <div class="risk-schedule-node {'risk-schedule-node-latest' if latest else ''}">
+            <span class="risk-detail-label">{html.escape(label)}</span>
+            <span class="risk-detail-value">{html.escape(value)}</span>
+        </div>
+        """
+        for label, value, latest in schedule_nodes
+    )
+    st.markdown(f'<div class="risk-schedule-flow">{schedule_flow}</div>', unsafe_allow_html=True)
+    schedule_table = pd.DataFrame({
+        "Report Month": schedule_comparisons["report_month"].map(_month_label),
+        "Reported Revised DoC": schedule_comparisons["revised_doc"],
+        "Extension from Previous Report": schedule_comparisons["revised_doc_extension_months"].map(
+            lambda value: f"+{int(value)} months" if pd.notna(value) and value > 0 else "—"
+        ),
+    })
+    st.dataframe(schedule_table, hide_index=True, use_container_width=True)
+
+st.markdown('<p class="risk-section-title">Why This Project Needs Attention</p>', unsafe_allow_html=True)
+if active_warnings.empty:
+    st.info("No active evidence-based early-warning explanation is available for this reporting snapshot.")
+else:
+    attention_items = "".join(
+        f"<li>{_safe(explanation)}</li>" for explanation in active_warnings["explanation"]
+    )
+    st.markdown(
+        f'<section class="risk-attention-panel"><ul>{attention_items}</ul></section>',
+        unsafe_allow_html=True,
+    )

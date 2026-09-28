@@ -115,6 +115,26 @@ REVIEW_PRIORITY_DISCLAIMER = (
     "monitoring indicators. It is not an official MoSPI risk classification."
 )
 
+EARLY_WARNING_COLUMNS = [
+    "report_month", "project_id", "warning_code", "warning_name", "explanation",
+    "previous_report_month", "earliest_report_month", "source_indicator_code",
+    "earliest_physical_progress_pct", "previous_physical_progress_pct",
+    "current_physical_progress_pct", "previous_progress_gain_pct_points",
+    "current_progress_gain_pct_points", "previous_expenditure_cr",
+    "current_expenditure_cr", "expenditure_change_cr", "previous_revised_doc",
+    "current_revised_doc", "extension_months", "source_report",
+]
+
+EARLY_WARNING_CODES = [
+    "PROGRESS_SLOWDOWN", "REPEATED_STAGNATION", "PROGRESS_STAGNATION_REVIEW",
+    "EXPENDITURE_PROGRESS_DIVERGENCE", "SCHEDULE_DETERIORATION",
+]
+
+EARLY_WARNING_DISCLAIMER = (
+    "Early Warning Status is a prototype screening status based on transparent "
+    "rules. It is not a prediction or an official MoSPI classification."
+)
+
 MONTH_VALUE_PATTERN = re.compile(r"^(0[1-9]|1[0-2])/\d{4}$")
 
 
@@ -694,6 +714,145 @@ def generate_review_priorities(
     return priorities[PRIORITY_COLUMNS].sort_values(
         ["report_month", "project_id"], kind="stable"
     ).reset_index(drop=True)
+
+
+def generate_early_warnings(
+    history: pd.DataFrame,
+    indicators: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Return distinct, evidence-bearing early warnings per project-month."""
+    del indicators  # Existing equivalent rule codes are retained in source_indicator_code.
+    compared = add_monitoring_comparisons(history)
+    grouped = compared.groupby("project_id", sort=False)
+    compared["_earliest_report_month"] = grouped["report_month"].shift(2)
+    compared["_earliest_physical_progress_pct"] = grouped[
+        "physical_progress_pct"
+    ].shift(2)
+    compared["_previous_progress_gain"] = grouped[
+        "physical_progress_change_pct_points"
+    ].shift(1)
+    warnings: list[dict[str, Any]] = []
+
+    def append_warning(row: pd.Series, code: str, name: str, explanation: str,
+                       source_code: str | None = None, **evidence: Any) -> None:
+        record = {column: None for column in EARLY_WARNING_COLUMNS}
+        record.update({
+            "report_month": row["report_month"], "project_id": row["project_id"],
+            "warning_code": code, "warning_name": name, "explanation": explanation,
+            "previous_report_month": row.get("previous_report_month"),
+            "source_indicator_code": source_code, "source_report": row["source_report"],
+        })
+        record.update(evidence)
+        warnings.append(record)
+
+    for _, row in compared.iterrows():
+        previous_gain = row["_previous_progress_gain"]
+        current_gain = row["physical_progress_change_pct_points"]
+        has_three_progress = (
+            pd.notna(row["_earliest_report_month"])
+            and pd.notna(row["_earliest_physical_progress_pct"])
+            and pd.notna(row["previous_physical_progress_pct"])
+            and pd.notna(row["physical_progress_pct"])
+            and pd.notna(previous_gain) and pd.notna(current_gain)
+        )
+        common_progress_evidence = {
+            "earliest_report_month": row["_earliest_report_month"],
+            "earliest_physical_progress_pct": row["_earliest_physical_progress_pct"],
+            "previous_physical_progress_pct": row["previous_physical_progress_pct"],
+            "current_physical_progress_pct": row["physical_progress_pct"],
+            "previous_progress_gain_pct_points": previous_gain,
+            "current_progress_gain_pct_points": current_gain,
+        }
+        if has_three_progress and previous_gain > 0 and 0 <= current_gain < previous_gain:
+            append_warning(
+                row, "PROGRESS_SLOWDOWN", "Progress Slowdown",
+                "Reported monthly physical-progress gain decreased from "
+                f"+{_format_number(previous_gain)} pp to +{_format_number(current_gain)} pp.",
+                **common_progress_evidence,
+            )
+        if has_three_progress and previous_gain == 0 and current_gain == 0:
+            append_warning(
+                row, "REPEATED_STAGNATION", "Repeated Stagnation",
+                "Reported physical progress remained at "
+                f"{_format_number(row['physical_progress_pct'])}% across three consecutive reports.",
+                **common_progress_evidence,
+            )
+
+        if pd.notna(current_gain) and current_gain == 0:
+            append_warning(
+                row, "PROGRESS_STAGNATION_REVIEW", "Progress Stagnation",
+                f"Reported physical progress remained at {_format_number(row['physical_progress_pct'])}% "
+                f"from {row['previous_report_month']} to {row['report_month']}.",
+                source_code="PROGRESS_STAGNATION_REVIEW",
+                previous_physical_progress_pct=row["previous_physical_progress_pct"],
+                current_physical_progress_pct=row["physical_progress_pct"],
+                current_progress_gain_pct_points=current_gain,
+            )
+
+        expenditure_gain = row["expenditure_change_cr"]
+        if pd.notna(expenditure_gain) and expenditure_gain > 0 and pd.notna(current_gain) and current_gain <= 0:
+            progress_text = (
+                "remained unchanged"
+                if current_gain == 0
+                else f"declined/corrected by {_format_number(abs(current_gain))} pp"
+            )
+            append_warning(
+                row, "EXPENDITURE_PROGRESS_DIVERGENCE", "Expenditure–Progress Divergence",
+                f"Cumulative expenditure increased by ₹{_format_number(expenditure_gain)} crore while "
+                f"reported physical progress {progress_text} ({_format_number(current_gain)} pp).",
+                source_code=("EXPENDITURE_PROGRESS_REVIEW" if current_gain == 0 else None),
+                previous_expenditure_cr=row["previous_cumulative_expenditure_cr"],
+                current_expenditure_cr=row["cumulative_expenditure_cr"],
+                expenditure_change_cr=expenditure_gain,
+                previous_physical_progress_pct=row["previous_physical_progress_pct"],
+                current_physical_progress_pct=row["physical_progress_pct"],
+                current_progress_gain_pct_points=current_gain,
+            )
+
+        extension = row["revised_doc_extension_months"]
+        if pd.notna(extension) and extension > 0:
+            append_warning(
+                row, "SCHEDULE_DETERIORATION", "Schedule Deterioration",
+                f"Revised DoC moved from {row['previous_revised_doc']} to {row['revised_doc']} "
+                f"(+{int(extension)} months).",
+                source_code="SCHEDULE_REVIEW",
+                previous_revised_doc=row["previous_revised_doc"],
+                current_revised_doc=row["revised_doc"], extension_months=int(extension),
+            )
+
+    result = pd.DataFrame(warnings, columns=EARLY_WARNING_COLUMNS)
+    if result.empty:
+        return result
+    duplicates = result.duplicated(["project_id", "report_month", "warning_code"])
+    if duplicates.any():
+        raise RiskEngineDataError("Early-warning generation produced duplicate conditions.")
+    return result.sort_values(["report_month", "project_id", "warning_code"], kind="stable").reset_index(drop=True)
+
+
+def generate_early_warning_status(
+    history: pd.DataFrame,
+    warnings: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Summarize distinct warning conditions without producing a numeric risk score."""
+    prepared = _prepare_history(history)
+    base = prepared[["report_month", "project_id"]].copy()
+    warning_data = generate_early_warnings(history) if warnings is None else warnings.copy()
+    if warning_data.empty:
+        summary = pd.DataFrame(columns=["project_id", "report_month", "active_warning_count", "active_warning_names"])
+    else:
+        summary = warning_data.groupby(["project_id", "report_month"], as_index=False).agg(
+            active_warning_count=("warning_code", "nunique"),
+            active_warning_names=("warning_name", lambda values: ", ".join(dict.fromkeys(values))),
+        )
+    status = base.merge(summary, how="left", on=["project_id", "report_month"], validate="one_to_one")
+    status["active_warning_count"] = status["active_warning_count"].fillna(0).astype(int)
+    status["active_warning_names"] = status["active_warning_names"].fillna("")
+    status["early_warning_status"] = np.select(
+        [status["active_warning_count"].ge(3), status["active_warning_count"].eq(2), status["active_warning_count"].eq(1)],
+        ["HIGH ATTENTION", "ELEVATED", "WATCH"], default="NO CURRENT WARNING",
+    )
+    status["early_warning_disclaimer"] = EARLY_WARNING_DISCLAIMER
+    return status.sort_values(["report_month", "project_id"], kind="stable").reset_index(drop=True)
 
 
 def _print_verification() -> None:
