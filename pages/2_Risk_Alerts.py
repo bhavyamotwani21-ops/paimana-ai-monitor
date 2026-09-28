@@ -373,6 +373,11 @@ PAGE_CSS = """
     .risk-project-key-risks ul { margin: 0.35rem 0 0; padding-left: 1.25rem; }
     .risk-project-key-risks li { color: #1F2933; font-size: 0.86rem; line-height: 1.5; margin: 0.18rem 0; }
     .risk-project-data-quality { color: #66727F; font-size: 0.8rem; margin: 0.65rem 0 0; }
+    .risk-actions-panel { background: #FFFFFF; border: 1px solid #D9DEE5; border-left: 4px solid #17365D; border-radius: 3px; padding: 0.25rem 1rem; }
+    .risk-action-item { padding: 0.7rem 0; }
+    .risk-action-item + .risk-action-item { border-top: 1px solid #E7EAF0; }
+    .risk-action-title { color: #102A43; font-size: 0.9rem; font-weight: 700; margin: 0; }
+    .risk-action-copy { color: #364554; font-size: 0.84rem; line-height: 1.5; margin: 0.25rem 0 0; }
     div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stSelectbox"]) { border-left: 4px solid #17365D !important; padding: 0.35rem 0.5rem; }
 
     @media (max-width: 760px) {
@@ -422,6 +427,57 @@ INDICATOR_CATEGORY_OPTIONS = [
 ]
 
 PRIORITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "NORMAL": 2}
+
+REVIEW_ACTIONS = {
+    "PROGRESS_SLOWDOWN": (
+        "Review execution momentum",
+        "Review recent milestone-level progress, compare planned versus reported physical progress where available, identify activities with slowing execution, and request an updated recovery/execution plan from the implementing agency.",
+    ),
+    "REPEATED_STAGNATION": (
+        "Verify project progress",
+        "Confirm whether physical work is actually stalled or whether reporting has not been updated. Review pending milestones and request the latest status and next expected milestone date.",
+    ),
+    "PROGRESS_STAGNATION_REVIEW": (
+        "Review stagnant physical progress",
+        "Verify the latest reported physical progress, review inactive or delayed milestones, and request an updated implementation status.",
+    ),
+    "EXPENDITURE_PROGRESS": (
+        "Reconcile expenditure with physical progress",
+        "Review expenditure incurred during the period and verify the corresponding physical work, procurement, or other supported project activity. Request supporting progress evidence where required.",
+    ),
+    "SCHEDULE": (
+        "Review schedule extension",
+        "Review the reason for the revised completion date, identify the activities driving the extension, and request the latest milestone/recovery schedule.",
+    ),
+    "COST_REVIEW": (
+        "Review cost escalation",
+        "Compare original and revised project cost, review approved scope or estimate changes, and identify the major reported cost-escalation components.",
+    ),
+    "REVISED_COST_UNAVAILABLE": (
+        "Request updated revised cost",
+        "Obtain the latest approved revised project cost before performing a complete cost-escalation assessment.",
+    ),
+    "REVISED_DOC_UNAVAILABLE": (
+        "Request updated completion date",
+        "Obtain the current expected/revised completion date before assessing schedule movement.",
+    ),
+    "PHYSICAL_PROGRESS_UNAVAILABLE": (
+        "Request updated physical progress",
+        "Obtain the latest physical-progress reporting before evaluating execution performance.",
+    ),
+}
+
+REVIEW_ACTION_ORDER = [
+    "PROGRESS_SLOWDOWN",
+    "REPEATED_STAGNATION",
+    "PROGRESS_STAGNATION_REVIEW",
+    "EXPENDITURE_PROGRESS",
+    "SCHEDULE",
+    "COST_REVIEW",
+    "REVISED_COST_UNAVAILABLE",
+    "REVISED_DOC_UNAVAILABLE",
+    "PHYSICAL_PROGRESS_UNAVAILABLE",
+]
 
 
 @st.cache_data(show_spinner=False)
@@ -510,6 +566,29 @@ def _warning_evidence_text(warning: pd.Series) -> str:
             f"(+{int(warning['extension_months'])} months)."
         )
     return ""
+
+
+def _recommended_review_actions(
+    project_indicators: pd.DataFrame,
+    active_warnings: pd.DataFrame,
+) -> list[tuple[str, str]]:
+    """Map active rule codes to a deduplicated, prioritized action list."""
+    active_codes = set(project_indicators["indicator_code"].dropna().astype(str))
+    active_codes.update(active_warnings["warning_code"].dropna().astype(str))
+
+    if active_codes & {
+        "EXPENDITURE_PROGRESS_REVIEW",
+        "EXPENDITURE_PROGRESS_DIVERGENCE",
+    }:
+        active_codes.add("EXPENDITURE_PROGRESS")
+    if active_codes & {"SCHEDULE_REVIEW", "SCHEDULE_DETERIORATION"}:
+        active_codes.add("SCHEDULE")
+
+    return [
+        REVIEW_ACTIONS[code]
+        for code in REVIEW_ACTION_ORDER
+        if code in active_codes
+    ][:4]
 
 
 def _render_summary_card(label: str, value: int) -> None:
@@ -991,6 +1070,22 @@ else:
         f'<section class="risk-attention-panel"><ul>{attention_items}</ul></section>',
         unsafe_allow_html=True,
     )
+
+st.markdown('<p class="risk-section-title">Recommended Review Actions</p>', unsafe_allow_html=True)
+recommended_actions = _recommended_review_actions(project_indicators, active_warnings)
+if not recommended_actions:
+    st.info("No specific review action is currently generated from the active monitoring rules.")
+else:
+    actions_html = "".join(
+        f"""
+        <div class="risk-action-item">
+            <p class="risk-action-title">{_safe(title)}</p>
+            <p class="risk-action-copy">{_safe(action)}</p>
+        </div>
+        """
+        for title, action in recommended_actions
+    )
+    st.html(f'<section class="risk-actions-panel">{actions_html}</section>')
 
 project_history = history.loc[history["project_id"].astype("string").eq(project_id)].copy()
 project_history["_period"] = pd.PeriodIndex(project_history["report_month"], freq="M")

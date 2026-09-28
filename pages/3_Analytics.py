@@ -12,16 +12,65 @@ from src.ui import apply_shared_styles, render_page_header
 
 PAGE_CSS = """
 <style>
-    .analytics-supporting { color: #66727F; font-size: 0.94rem; margin: 0.1rem 0 0.45rem; }
-    .analytics-filter-title { color: #17365D; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.025em; margin: 0 0 0.3rem; text-transform: uppercase; }
-    .analytics-context { color: #66727F; font-size: 0.84rem; margin: 0 0 0.4rem; }
-    .analytics-section-title { color: #17365D; font-size: 1.18rem; font-weight: 700; margin: 1.05rem 0 0.2rem; }
+.page-heading-rule {
+    display: none;
+}
+.page-heading {
+    margin-bottom: 0.45rem !important;
+}
+
+.page-introduction {
+    margin-bottom: 1.2rem !important;
+}
+    .analytics-supporting {
+    color: #66727F;
+    font-size: 0.94rem;
+    line-height: 1.45;
+    margin: 0 0 1.25rem;
+}
+    .analytics-filter-title { color: #17365D; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.025em; margin: 0 0 0.55rem; text-transform: uppercase; }
+    .analytics-context {
+    color: #66727F;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    margin: 0 0 0.75rem;
+}
+    .analytics-section-title { color: #17365D; font-size: 1.18rem; font-weight: 700; margin: 1.65rem 0 0.4rem; }
     .analytics-section-note { color: #66727F; font-size: 0.84rem; margin: 0 0 0.65rem; }
-    .analytics-kpi { background: #FFFFFF; border: 1px solid #D9DEE5; border-top: 3px solid #17365D; border-radius: 5px; box-sizing: border-box; height: 110px; padding: 0.8rem 0.9rem; }
+    .analytics-kpi {
+    background: #FFFFFF;
+    border: 1px solid #D9DEE5;
+    border-top: 3px solid #17365D;
+    border-radius: 5px;
+    box-sizing: border-box;
+    height: 132px;
+    padding: 1rem 1.1rem;
+}   
+    .analytics-chart-title {
+    color: #1F2933;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 0.8rem;
+}
     .analytics-kpi-label { color: #66727F; font-size: 0.73rem; font-weight: 700; letter-spacing: 0.03em; line-height: 1.3; margin: 0; text-transform: uppercase; }
     .analytics-kpi-value { color: #17365D; font-size: 1.28rem; font-weight: 750; line-height: 1.25; margin: 0.4rem 0 0; overflow-wrap: anywhere; }
-    .analytics-coverage-note { background: #F2F4F7; border-left: 3px solid #D99024; color: #495765; font-size: 0.86rem; line-height: 1.45; margin-top: 0.7rem; padding: 0.65rem 0.8rem; }
-    [data-testid="stPlotlyChart"] { background: #FFFFFF; border: 1px solid #D9DEE5; border-radius: 5px; padding: 0.15rem 0.35rem 0.1rem; }
+    .analytics-coverage-note {
+    background: #F2F4F7;
+    border-left: 3px solid #D99024;
+    color: #495765;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    margin: 1rem 0 1.8rem;
+    padding: 0.8rem 1rem;
+}
+    [data-testid="stPlotlyChart"] {
+    background: #FFFFFF;
+    border: 1px solid #D9DEE5;
+    border-radius: 5px;
+    padding: 0.35rem 0.5rem 0.3rem;
+    margin-bottom: 0.8rem;
+}
     [data-testid="stDataFrame"], [data-testid="stVerticalBlockBorderWrapper"] { background: #FFFFFF !important; border-color: #D9DEE5 !important; box-shadow: none !important; }
     [data-testid="stSelectbox"] div[role="group"], div[data-baseweb="select"] > div { background: #FFFFFF !important; border-color: #D9DEE5 !important; color: #1F2933 !important; }
     [data-testid="stSelectbox"] input, div[data-baseweb="select"] input, div[data-baseweb="select"] span { color: #1F2933 !important; -webkit-text-fill-color: #1F2933 !important; }
@@ -275,7 +324,10 @@ st.markdown(
 _section("Physical Progress Analytics")
 physical_columns = st.columns(2)
 with physical_columns[0]:
-    st.markdown("**Median Reported Physical Progress (%)**")
+    st.markdown(
+    '<p class="analytics-chart-title">Median Reported Physical Progress (%)</p>',
+    unsafe_allow_html=True,
+)
     if len(months) >= 2:
         valid_median = monthly["median_progress"].dropna()
         st.plotly_chart(
@@ -286,7 +338,10 @@ with physical_columns[0]:
     else:
         st.caption("Only one reporting month is available in this filter context.")
 with physical_columns[1]:
-    st.markdown("**Physical Progress Distribution by Month**")
+    st.markdown(
+    '<p class="analytics-chart-title">Physical Progress Distribution by Month</p>',
+    unsafe_allow_html=True,
+)
     distribution = _progress_band_counts(analytics_data, months)
     distribution_figure = go.Figure()
     for index, band in enumerate(["0–25%", "26–50%", "51–75%", "76–99%", "100%"]):
@@ -324,7 +379,10 @@ if selected_ministry == "All Ministries":
         min(620, 24 * max(len(ministry_counts), len(sector_counts)) + 80),
     )
     with composition_columns[composition_index]:
-        st.markdown("**Projects by Ministry**")
+        st.markdown(
+    '<p class="analytics-chart-title">Projects by Ministry</p>',
+    unsafe_allow_html=True,
+)
         ministry_figure = go.Figure(go.Bar(
             x=ministry_counts.tolist(), y=ministry_counts.index.tolist(), orientation="h",
             marker_color=NAVY, hovertemplate="%{y}<br>%{x:,} projects<extra></extra>",
