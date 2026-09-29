@@ -395,7 +395,7 @@ SHARED_CSS = """
 
 
 def apply_shared_styles(show_sidebar: bool = True) -> None:
-    """Apply the common PAIMANA visual system to the current page."""
+    """Apply the common UJAGAR visual system to the current page."""
     sidebar_rule = "" if show_sidebar else """
         [data-testid="stSidebar"], [data-testid="collapsedControl"] {
             display: none;
@@ -427,11 +427,11 @@ def render_login_institutional_header() -> None:
 
 
 def render_login_identity() -> None:
-    """Render the centered PAIMANA application identity."""
+    """Render the centered UJAGAR application identity."""
     st.markdown(
         """
         <section class="login-identity">
-            <p class="login-wordmark">PAIMANA</p>
+            <p class="login-wordmark">UJAGAR</p>
             <p class="login-system-name">Infrastructure Project Monitoring System</p>
         </section>
         """,
@@ -444,7 +444,7 @@ def render_login_footer() -> None:
     st.markdown(
         """
         <footer class="login-footer">
-            PAIMANA | Ministry of Statistics and Programme Implementation
+            UJAGAR | Ministry of Statistics and Programme Implementation
         </footer>
         """,
         unsafe_allow_html=True,
@@ -456,7 +456,7 @@ def render_brand_header() -> None:
     st.markdown(
         """
         <header class="paimana-brand">
-            <p class="paimana-wordmark">PAIMANA</p>
+            <p class="paimana-wordmark">UJAGAR</p>
             <p class="paimana-system-name">Infrastructure Project Monitoring System</p>
             <p class="paimana-ministry">
                 Ministry of Statistics and Programme Implementation<br>

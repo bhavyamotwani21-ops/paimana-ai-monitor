@@ -23,7 +23,7 @@ ui = importlib.reload(ui)
 
 
 st.set_page_config(
-    page_title="PAIMANA",
+    page_title="UJAGAR",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -487,7 +487,7 @@ def render_login_identity() -> None:
     st.markdown(
         """
         <section class="login-identity">
-            <p class="login-wordmark">PAIMANA</p>
+            <p class="login-wordmark">UJAGAR</p>
             <p class="login-system-name">Infrastructure Project Monitoring System</p>
         </section>
         """,
@@ -499,7 +499,7 @@ def render_login_footer() -> None:
     st.markdown(
         """
         <footer class="login-footer">
-            PAIMANA | Ministry of Statistics and Programme Implementation
+            UJAGAR | Ministry of Statistics and Programme Implementation
         </footer>
         """,
         unsafe_allow_html=True,
@@ -557,7 +557,8 @@ def home_page() -> None:
     st.markdown(
         """
         <p class="home-overview-copy">
-            Overall snapshot of reported PAIMANA project data.
+            UJAGAR analyzes historical PAIMANA project data to surface monitoring
+            indicators, early-warning signals and review priorities.
         </p>
         """,
         unsafe_allow_html=True,
@@ -897,7 +898,7 @@ ui.apply_shared_styles()
 
 navigation = st.navigation(
     {
-        "PAIMANA": [
+        "UJAGAR": [
             st.Page(home_page, title="Home", default=True),
             st.Page("pages/1_Projects.py", title="Projects"),
             st.Page("pages/2_Risk_Alerts.py", title="Risk & Alerts"),

@@ -96,14 +96,14 @@ def _grouped_list(groups: list[tuple[str, list[str]]]) -> None:
 apply_shared_styles()
 st.html(PAGE_CSS)
 render_page_header(
-    "About PAIMANA AI Monitor",
+    "About UJAGAR",
     "Early Warning & Project Intelligence for Infrastructure Monitoring",
 )
 
 st.html(
     """
     <div class="about-intro">
-        <p>PAIMANA AI Monitor is a decision-support prototype designed to strengthen the monitoring of large Central Sector infrastructure projects using historical PAIMANA reporting data.</p>
+        <p>UJAGAR is a decision-support prototype designed to strengthen the monitoring of large Central Sector infrastructure projects using historical PAIMANA reporting data.</p>
         <p>Instead of treating each monthly report as an isolated snapshot, the platform connects project records across reporting periods and analyzes changes in cost, schedule, expenditure and physical progress.</p>
         <p>The objective is to help monitoring officers identify which projects need attention, understand why they were flagged, and determine what should be reviewed next.</p>
     </div>
@@ -111,7 +111,7 @@ st.html(
     """
 )
 
-_section("Why PAIMANA AI Monitor?")
+_section("Why UJAGAR?")
 st.html(
     """
     <div class="about-copy">
@@ -133,7 +133,7 @@ _cards(
 
 _section(
     "Our Approach",
-    "PAIMANA AI Monitor transforms historical project reporting into a continuous monitoring workflow. Instead of asking only what the current status is, the system also examines what changed since the previous reporting period and whether a concerning pattern is beginning to emerge.",
+    "UJAGAR transforms historical PAIMANA project reporting into a continuous monitoring workflow. Instead of asking only what the current status is, the system also examines what changed since the previous reporting period and whether a concerning pattern is beginning to emerge.",
 )
 workflow = [
     ("Historical PAIMANA Data", "Uses reported monthly infrastructure project information."),
@@ -151,8 +151,8 @@ workflow_html = "".join(
 st.html(f'<div class="about-flow">{workflow_html}</div>')
 
 _section(
-    "How PAIMANA AI Monitor Works",
-    "The platform processes monthly PAIMANA infrastructure project reports and builds a normalized historical project dataset. Records are connected using Project ID so that project values can be compared across available reporting months.",
+    "How UJAGAR Works",
+    "UJAGAR processes monthly PAIMANA infrastructure project reports and builds a normalized historical project dataset. Records are connected using Project ID so that project values can be compared across available reporting months.",
 )
 architecture = [
     "Official PAIMANA Monthly Reports",
@@ -235,7 +235,7 @@ st.html(
 
 _section(
     "Project Risk Summary",
-    "For each selected project, PAIMANA AI Monitor brings together the most important monitoring information into a single summary.",
+    "For each selected project, UJAGAR brings together the most important monitoring information into a single summary.",
 )
 _cards(
     [(label, "Presented from the selected project-month's calculated monitoring context.") for label in ["Review Priority", "Early Warning Status", "Monitoring Indicators", "Early Warnings", "Key Risks"]]
@@ -243,7 +243,7 @@ _cards(
 
 _section(
     "Recommended Review Actions",
-    "PAIMANA AI Monitor does not stop at identifying a monitoring condition. It maps active conditions to practical areas for officer review.",
+    "UJAGAR does not stop at identifying a monitoring condition. It maps active conditions to practical areas for officer review.",
 )
 _cards(
     [
@@ -269,7 +269,7 @@ _grouped_list(
 
 _section(
     "Explainability & Auditability",
-    "A core design principle of PAIMANA AI Monitor is that every monitoring flag should be understandable. Instead of only showing HIGH, the system can show supporting evidence such as: “Cumulative expenditure increased while reported physical progress remained unchanged.”",
+    "A core design principle of UJAGAR is that every monitoring flag should be understandable. Instead of only showing HIGH, the system can show supporting evidence such as: “Cumulative expenditure increased while reported physical progress remained unchanged.”",
 )
 _grouped_list(
     [("Evidence available to users", ["Reporting period", "Previous value", "Current value", "Change value", "Source report", "Triggered monitoring condition"])]
@@ -277,7 +277,7 @@ _grouped_list(
 
 _section(
     "Data Quality Awareness",
-    "Infrastructure reporting data can contain missing or unavailable information. PAIMANA AI Monitor identifies these conditions explicitly instead of silently replacing unavailable values with zero.",
+    "Infrastructure reporting data can contain missing or unavailable information. UJAGAR identifies these conditions explicitly instead of silently replacing unavailable values with zero.",
 )
 _cards(
     [
@@ -307,7 +307,7 @@ _section("Current Methodology")
 st.html(
     """
     <div class="about-methodology">
-        PAIMANA AI Monitor currently uses transparent rule-based monitoring and historical trend analysis rather than a trained predictive machine-learning model.<br><br>
+        UJAGAR currently uses transparent rule-based monitoring and historical trend analysis rather than a trained predictive machine-learning model.<br><br>
         This approach allows every monitoring signal to be linked directly to reported project values and clearly explained to the user.<br><br>
         The architecture can later incorporate validated statistical or machine-learning models without replacing the transparent evidence layer.
     </div>
@@ -334,7 +334,7 @@ _cards(
         ("Validated Predictive Models", "Explore delay or cost-risk estimation only after sufficient historical outcome data and model validation are available."),
         ("Explainable Machine Learning", "Retain transparent evidence alongside any future predictive signals."),
         ("Cross-Project Benchmarking", "Compare projects with similar sectors, ministries or implementation characteristics."),
-        ("PAIMANA Copilot", "Provide a grounded conversational interface for explaining project history, monitoring indicators, early warnings and recommended review actions."),
+        ("UJAGAR Copilot", "Provide a grounded conversational interface for explaining project history, monitoring indicators, early warnings and recommended review actions."),
     ]
 )
 
@@ -345,5 +345,5 @@ st.html(
 )
 
 st.html(
-    '<div class="about-disclaimer">PAIMANA AI Monitor is a prototype decision-support tool developed for demonstration purposes. Monitoring indicators, early-warning statuses, review priorities and recommended review actions generated by the prototype are not official MoSPI/IPMD classifications, findings or administrative decisions.</div>'
+    '<div class="about-disclaimer">UJAGAR is a prototype decision-support tool developed for demonstration purposes. Monitoring indicators, early-warning statuses, review priorities and recommended review actions generated by the prototype are not official MoSPI/IPMD classifications, findings or administrative decisions.</div>'
 )

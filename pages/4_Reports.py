@@ -253,7 +253,7 @@ def _pdf_footer(canvas, document, regular_font: str) -> None:
     canvas.line(14 * mm, 11 * mm, width - 14 * mm, 11 * mm)
     canvas.setFont(regular_font, 7)
     canvas.setFillColor(SECONDARY)
-    canvas.drawString(14 * mm, 7 * mm, "PAIMANA prototype monitoring report")
+    canvas.drawString(14 * mm, 7 * mm, "UJAGAR prototype monitoring report")
     canvas.drawRightString(
         width - 14 * mm, 7 * mm, f"Page {document.page}"
     )
@@ -270,8 +270,8 @@ def _build_pdf(context: dict[str, object]) -> bytes:
         leftMargin=14 * mm,
         topMargin=14 * mm,
         bottomMargin=16 * mm,
-        title=f"PAIMANA Monitoring Report - {context['report_month_label']}",
-        author="PAIMANA prototype",
+        title=f"UJAGAR Monitoring Report - {context['report_month_label']}",
+        author="UJAGAR prototype",
     )
     base_styles = getSampleStyleSheet()
     styles = {
@@ -390,7 +390,7 @@ def _build_pdf(context: dict[str, object]) -> bytes:
 
     story: list[object] = [
         Spacer(1, 18 * mm),
-        Paragraph("PAIMANA", styles["cover_brand"]),
+        Paragraph("UJAGAR", styles["cover_brand"]),
         HRFlowable(
             width="28%", thickness=2, color=SAFFRON, hAlign="CENTER", spaceAfter=7 * mm
         ),
@@ -677,7 +677,7 @@ def _build_pdf(context: dict[str, object]) -> bytes:
     story.extend([PageBreak(), *heading("6. Source & Methodology")])
     methodology = [
         f"Source report(s): {', '.join(context['source_reports']) or 'Not available'}.",
-        "This PAIMANA prototype uses reported project information from the processed historical dataset.",
+        "This UJAGAR prototype uses reported PAIMANA project information from the processed historical dataset.",
         "Historical observations are compared across available reporting months where applicable.",
         "Monitoring indicators are transparent rule-based screening signals produced by the existing prototype engine.",
         "Review Priority is derived from the number of substantive monitoring indicators under the existing prototype logic. Data-quality indicators do not increase priority.",
@@ -885,7 +885,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-filename_base = f"PAIMANA_Monitoring_Report_{_safe_filename_part(context['report_month_label'])}"
+filename_base = f"UJAGAR_Monitoring_Report_{_safe_filename_part(context['report_month_label'])}"
 if context["ministry"] != "All Ministries":
     filename_base += f"_{_safe_filename_part(context['ministry'])}"
 st.markdown(
