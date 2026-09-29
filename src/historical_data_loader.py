@@ -228,6 +228,14 @@ def _parse_pair(
     value: str, pattern: re.Pattern[str], field: str, context: str
 ) -> tuple[str, str]:
     tokens = pattern.findall(value)
+    # Some official report rows render a pair of unavailable values as
+    # ``NA ()`` rather than ``NA (NA)``. Preserve both fields as unavailable;
+    # never infer either member of the pair.
+    compact_unavailable_pair = re.fullmatch(
+        r"\s*(?:N/?A\s*\(\s*\)|\(\s*-\s*\))\s*", value, re.IGNORECASE
+    )
+    if len(tokens) == 1 and compact_unavailable_pair:
+        return tokens[0], tokens[0]
     if len(tokens) != 2:
         raise HistoricalExtractionError(
             f"Expected two {field} values in {context}, found {tokens!r} from {value!r}."
@@ -509,7 +517,7 @@ def validate_history(history: pd.DataFrame) -> pd.DataFrame:
     critical_failures: list[str] = []
     for row in quality.to_dict("records"):
         month = row["report_month"]
-        if row["official_rows"] is not None and row["official_count_difference"] != 0:
+        if pd.notna(row["official_rows"]) and row["official_count_difference"] != 0:
             critical_failures.append(
                 f"{month}: extracted {row['extracted_rows']} vs official {row['official_rows']}"
             )

@@ -891,7 +891,7 @@ st.markdown(
     '<p class="risk-section-title">Project Risk Summary</p>',
     unsafe_allow_html=True,
 )
-st.markdown(
+st.html(
     f"""
     <section class="risk-project-summary">
         <p class="risk-project-summary-name">{_safe(selected_project['project_name'])}</p>
@@ -919,8 +919,7 @@ st.markdown(
             {data_quality_html}
         </div>
     </section>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 st.markdown(
