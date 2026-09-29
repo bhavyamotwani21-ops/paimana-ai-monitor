@@ -903,6 +903,7 @@ navigation = st.navigation(
             st.Page("pages/2_Risk_Alerts.py", title="Risk & Alerts"),
             st.Page("pages/3_Analytics.py", title="Analytics"),
             st.Page("pages/4_Reports.py", title="Reports"),
+            st.Page("pages/5_About_Us.py", title="About Us"),
         ]
     }
 )
